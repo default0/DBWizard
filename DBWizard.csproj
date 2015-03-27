@@ -55,7 +55,6 @@
     <Compile Include="CDataBaseOperationResult.cs" />
     <Compile Include="CDataBaseResultSet.cs" />
     <Compile Include="CDataBaseRow.cs" />
-    <Compile Include="CDataBaseSerializableAttribute.cs" />
     <Compile Include="CDBWizardStatus.cs" />
     <Compile Include="CForeignKey.cs" />
     <Compile Include="CHelper.cs" />
@@ -69,7 +68,6 @@
     <Compile Include="ELoadOptions.cs" />
     <Compile Include="EObjectLinkType.cs" />
     <Compile Include="ExtensionMethods.cs" />
-    <Compile Include="IDataBaseSerializable.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Queries\CDataBaseQuery.cs" />
     <Compile Include="Queries\CDataBaseQueryResult.cs" />
