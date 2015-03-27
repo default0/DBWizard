@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{5339A7E6-79B1-4B32-AA86-A2C46F7D25C1}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>DBWizard</RootNamespace>
+    <AssemblyName>DBWizard</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MongoDB.Bson">
+      <HintPath>..\BlackGalaxyServer\bin\Debug\MongoDB.Bson.dll</HintPath>
+    </Reference>
+    <Reference Include="MongoDB.Driver">
+      <HintPath>..\BlackGalaxyServer\bin\Debug\MongoDB.Driver.dll</HintPath>
+    </Reference>
+    <Reference Include="Mysql.Data, Version=6.7.4.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\BlackGalaxyServer\bin\Debug\Mysql.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="CDataBase.cs" />
+    <Compile Include="CDataBaseObject.cs" />
+    <Compile Include="CDataBaseOperation.cs" />
+    <Compile Include="CDataBaseOperationResult.cs" />
+    <Compile Include="CDataBaseResultSet.cs" />
+    <Compile Include="CDataBaseRow.cs" />
+    <Compile Include="CDataBaseSerializableAttribute.cs" />
+    <Compile Include="CDBWizardStatus.cs" />
+    <Compile Include="CForeignKey.cs" />
+    <Compile Include="CHelper.cs" />
+    <Compile Include="CObjectInitializationException.cs" />
+    <Compile Include="CObjectMap.cs" />
+    <Compile Include="CCrc32.cs" />
+    <Compile Include="CTypeManager.cs" />
+    <Compile Include="EDBPrimitive.cs" />
+    <Compile Include="EDBWizardStatusCode.cs" />
+    <Compile Include="EDriverType.cs" />
+    <Compile Include="ELoadOptions.cs" />
+    <Compile Include="EObjectLinkType.cs" />
+    <Compile Include="ExtensionMethods.cs" />
+    <Compile Include="IDataBaseSerializable.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Queries\CDataBaseQuery.cs" />
+    <Compile Include="Queries\CDataBaseQueryResult.cs" />
+    <Compile Include="Queries\CDeleteQuery.cs" />
+    <Compile Include="Queries\CInsertQuery.cs" />
+    <Compile Include="Queries\CSelectQuery.cs" />
+    <Compile Include="Queries\CUpdateQuery.cs" />
+    <Compile Include="SObjectLink.cs" />
+    <Compile Include="SQL\CAssignmentList.cs" />
+    <Compile Include="SQL\CColumnList.cs" />
+    <Compile Include="SQL\CVariableList.cs" />
+    <Compile Include="SQL\CWhereCondition.cs" />
+    <Compile Include="SQL\EBooleanOperator.cs" />
+    <Compile Include="SStorePrimitiveOptions.cs" />
+    <Compile Include="StoreAttributes\CBeginLoadCallBackAttribute.cs" />
+    <Compile Include="StoreAttributes\CBeginSaveCallBackAttribute.cs" />
+    <Compile Include="StoreAttributes\CEndLoadCallBackAttribute.cs" />
+    <Compile Include="StoreAttributes\CEndSaveCallBackAttribute.cs" />
+    <Compile Include="StoreAttributes\CUniqueKeyAttribute.cs" />
+    <Compile Include="StoreAttributes\CManyToManyAttribute.cs" />
+    <Compile Include="StoreAttributes\COneToManyAttribute.cs" />
+    <Compile Include="StoreAttributes\CPrimitiveAttribute.cs" />
+    <Compile Include="StoreAttributes\COneToOneAttribute.cs" />
+    <Compile Include="StoreAttributes\CTableAttribute.cs" />
+    <Compile Include="StoreAttributes\CUserLoadCallBackAttribute.cs" />
+    <Compile Include="StoreAttributes\CUserSaveCallBackAttribute.cs" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
