@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 
 namespace DBWizard
 {
-	public enum EStoreOptions
-	{
-		none = 0,
+    public enum EStoreOptions
+    {
+        none = 0,
 
-		direct_assignment = 10,
-		user_callback = 11,
-	}
+        direct_assignment = 10,
+        user_callback = 11,
+    }
 }

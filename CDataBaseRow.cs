@@ -9,57 +9,55 @@ using ETypeCode = System.TypeCode;
 
 namespace DBWizard
 {
-	/// <summary>
-	/// Represents a database row.
-	/// </summary>
-	public class CDataBaseRow
-	{
-		private Dictionary<String, Object> _m_p_values;
+    /// <summary>
+    /// Represents a database row.
+    /// </summary>
+    public class CDataBaseRow
+    {
+        private Dictionary<String, Object> _m_p_values;
 
-		/// <summary>
-		/// Constructs a new empty database row.
-		/// </summary>
-		public CDataBaseRow()
-		{
-			_m_p_values = new Dictionary<String, Object>();
-		}
+        /// <summary>
+        /// Constructs a new empty database row.
+        /// </summary>
+        public CDataBaseRow()
+        {
+            _m_p_values = new Dictionary<String, Object>();
+        }
 
-		public Object this[String p_column_name]
-		{
-			get
-			{
-				return _m_p_values[p_column_name];
-			}
-		}
+        public Object this[String p_column_name]
+        {
+            get
+            {
+                return _m_p_values[p_column_name];
+            }
+        }
 
-		public Boolean TryGetValue(String p_column_name, out Object p_value)
-		{
-			return _m_p_values.TryGetValue(p_column_name, out p_value);
-		}
+        public Boolean TryGetValue(String p_column_name, out Object p_value)
+        {
+            return _m_p_values.TryGetValue(p_column_name, out p_value);
+        }
 
-		/// <summary>
-		/// Retrieves the value for the given column.
-		/// </summary>
-		/// <typeparam name="T">The type of the value.</typeparam>
-		/// <param name="p_column_name">The name of the column.</param>
-		/// <returns>The value for the given column.</returns>
-		public T Get<T>(String p_column_name)
-		{
-			return (T)_m_p_values[p_column_name];
-		}
-		/// <summary>
-		/// Sets the value for the given column.
-		/// </summary>
-		/// <typeparam name="T">The type of the value.</typeparam>
-		/// <param name="p_column_name">The name of the column.</param>
-		/// <param name="value">The value the column should be set to.</param>
-		public void Set<T>(String p_column_name, T value)
-		{
-			_m_p_values[p_column_name] = value;
-		}
-	}
-
-
+        /// <summary>
+        /// Retrieves the value for the given column.
+        /// </summary>
+        /// <typeparam name="T">The type of the value.</typeparam>
+        /// <param name="p_column_name">The name of the column.</param>
+        /// <returns>The value for the given column.</returns>
+        public T Get<T>(String p_column_name)
+        {
+            return (T)_m_p_values[p_column_name];
+        }
+        /// <summary>
+        /// Sets the value for the given column.
+        /// </summary>
+        /// <typeparam name="T">The type of the value.</typeparam>
+        /// <param name="p_column_name">The name of the column.</param>
+        /// <param name="value">The value the column should be set to.</param>
+        public void Set<T>(String p_column_name, T value)
+        {
+            _m_p_values[p_column_name] = value;
+        }
+    }
 
 
 
@@ -87,8 +85,10 @@ namespace DBWizard
 
 
 
-	#region LEGACY DATABASE ROW
-	/*/// <summary>
+
+
+    #region LEGACY DATABASE ROW
+    /*/// <summary>
 	/// Represents a row in a database. Other rows or lists of other rows can be specified in entries of this row.
 	/// </summary>
 	public class CDataBaseRow
@@ -283,5 +283,5 @@ namespace DBWizard
 			return true;
 		}
 	}*/
-	#endregion
+    #endregion
 }

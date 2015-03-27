@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace DBWizard.SQL
 {
-	public enum EBooleanOperator
-	{
-		and = 0,
-		or = 1,
-	}
+    public enum EBooleanOperator
+    {
+        and = 0,
+        or = 1,
+    }
 }

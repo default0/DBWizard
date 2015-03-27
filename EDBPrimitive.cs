@@ -6,48 +6,48 @@ using System.Threading.Tasks;
 
 namespace DBWizard
 {
-	public enum EDBPrimitive
-	{
-		none = 0,
+    public enum EDBPrimitive
+    {
+        none = 0,
 
-		int8,
-		uint8,
+        int8,
+        uint8,
 
-		int16,
-		uint16,
+        int16,
+        uint16,
 
-		int24,
-		uint24,
+        int24,
+        uint24,
 
-		int32,
-		uint32,
+        int32,
+        uint32,
 
-		int64,
-		uint64,
+        int64,
+        uint64,
 
-		@decimal,
-		@float,
-		@double,
+        @decimal,
+        @float,
+        @double,
 
-		bit,
-		boolean,
+        bit,
+        boolean,
 
-		@char,
-		varchar,
-		text,
+        @char,
+        varchar,
+        text,
 
-		binary,
-		varbinary,
+        binary,
+        varbinary,
 
-		date,
-		datetime,
-		timestamp,
-		time,
-		year,
+        date,
+        datetime,
+        timestamp,
+        time,
+        year,
 
-		/// <summary>
-		/// Infers the actual primitive type from the field type.
-		/// </summary>
-		infer
-	}
+        /// <summary>
+        /// Infers the actual primitive type from the field type.
+        /// </summary>
+        infer
+    }
 }
