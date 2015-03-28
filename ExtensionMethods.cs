@@ -305,6 +305,11 @@ namespace DBWizard
             }
             else if (p_type == typeof(DateTime))
             {
+                result = EDBPrimitive.datetime;
+                return true;
+            }
+            else if (p_type == typeof(TimeSpan))
+            {
                 result = EDBPrimitive.time;
                 return true;
             }
