@@ -55,32 +55,33 @@ namespace DBWizard
                     MySqlConnection p_mysql_connection = new MySqlConnection();
 
                     m_p_supported_primitives = new HashSet<EDBPrimitive>()
-					{
-						EDBPrimitive.@decimal,
-						EDBPrimitive.int8,
-						EDBPrimitive.int16,
-						EDBPrimitive.int24,
-						EDBPrimitive.int32,
-						EDBPrimitive.int64,
-						EDBPrimitive.uint8,
-						EDBPrimitive.uint16,
-						EDBPrimitive.uint24,
-						EDBPrimitive.uint32,
-						EDBPrimitive.uint64,
-						EDBPrimitive.timestamp,
-						EDBPrimitive.date,
-						EDBPrimitive.time,
-						EDBPrimitive.datetime,
-						EDBPrimitive.year,
-						EDBPrimitive.varbinary,
-						EDBPrimitive.binary,
-						EDBPrimitive.varchar,
-						EDBPrimitive.@char,
-						EDBPrimitive.text,
-						EDBPrimitive.bit,
-						EDBPrimitive.@float,
-						EDBPrimitive.@double
-					};
+                    {
+                        EDBPrimitive.@decimal,
+                        EDBPrimitive.int8,
+                        EDBPrimitive.int16,
+                        EDBPrimitive.int24,
+                        EDBPrimitive.int32,
+                        EDBPrimitive.int64,
+                        EDBPrimitive.uint8,
+                        EDBPrimitive.uint16,
+                        EDBPrimitive.uint24,
+                        EDBPrimitive.uint32,
+                        EDBPrimitive.uint64,
+                        EDBPrimitive.timestamp,
+                        EDBPrimitive.date,
+                        EDBPrimitive.time,
+                        EDBPrimitive.datetime,
+                        EDBPrimitive.year,
+                        EDBPrimitive.varbinary,
+                        EDBPrimitive.binary,
+                        EDBPrimitive.varchar,
+                        EDBPrimitive.@char,
+                        EDBPrimitive.text,
+                        EDBPrimitive.bit,
+                        EDBPrimitive.@float,
+                        EDBPrimitive.@double,
+                        EDBPrimitive.boolean
+                    };
 
                     p_mysql_connection.ConnectionString = p_connection_string;
                     try
@@ -97,25 +98,25 @@ namespace DBWizard
                     SqlConnection p_mssql_connection = new SqlConnection();
 
                     m_p_supported_primitives = new HashSet<EDBPrimitive>()
-					{
-						EDBPrimitive.int64,
-						EDBPrimitive.binary,
-						EDBPrimitive.boolean,
-						EDBPrimitive.@char,
-						EDBPrimitive.datetime,
-						EDBPrimitive.@decimal,
-						EDBPrimitive.@double,
-						EDBPrimitive.varbinary,
-						EDBPrimitive.int32,
-						EDBPrimitive.text,
-						EDBPrimitive.varchar,
-						EDBPrimitive.@float,
-						EDBPrimitive.int16,
-						EDBPrimitive.uint8,
-						EDBPrimitive.varbinary,
-						EDBPrimitive.date,
-						EDBPrimitive.time,
-					};
+                    {
+                        EDBPrimitive.int64,
+                        EDBPrimitive.binary,
+                        EDBPrimitive.boolean,
+                        EDBPrimitive.@char,
+                        EDBPrimitive.datetime,
+                        EDBPrimitive.@decimal,
+                        EDBPrimitive.@double,
+                        EDBPrimitive.varbinary,
+                        EDBPrimitive.int32,
+                        EDBPrimitive.text,
+                        EDBPrimitive.varchar,
+                        EDBPrimitive.@float,
+                        EDBPrimitive.int16,
+                        EDBPrimitive.uint8,
+                        EDBPrimitive.varbinary,
+                        EDBPrimitive.date,
+                        EDBPrimitive.time,
+                    };
 
                     p_mssql_connection.ConnectionString = p_connection_string;
                     try

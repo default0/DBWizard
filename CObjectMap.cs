@@ -79,27 +79,6 @@ namespace DBWizard
 
         internal Type m_p_object_type { get; private set; }
 
-        // set of primitives, set of relations:
-        // primitives => in-place
-        // single-relations => in-place reference
-        // 1:many-relations => referenced directly
-        // many:many-relations => referenced via relation table
-
-        // question: how should completed_quest_offers.player_id be represented?
-        // it's an external key that exists only if there is a player to associate the completed_quest_offer with
-        // this means that the generated method needs to refer to both the player and the completed quest offer
-        // => could either get the CPlayer instance (bad; the pk might be a private field)
-        // => or could get the CDataBaseObject derived from the CPlayer instance (avoids the private field issue, but still doesnt feel good)
-        // => or could get only the set of required knowledge (the value that associates back to the CPlayer Object)
-
-        // 1:many => results in an SObjectLink linking the "this" map and the map of the target objects by a foreign key
-        // many:many => results in an SObjectLink linking the "this" map and the map of the relation table by a foreign key,
-        // whereas the relation tables map will yet again link from itself to the many target objects with an SObjectLink.
-
-        // I need to save the attributes m_p_value_name
-        // I cannot really save it in the SObjectLink since the way these are created is kind of random depending on what attribute exactly created it
-        // 
-
         internal List<SStorePrimitiveOptions> m_p_unique_keys { get; private set; }
         internal Dictionary<String, SStorePrimitiveOptions> m_p_primitives_map { get; private set; }
         internal List<SObjectLink> m_p_object_links { get; private set; }
@@ -134,7 +113,7 @@ namespace DBWizard
             return (from primary_key in m_p_unique_keys select primary_key.m_p_column_name).ToArray();
         }
 
-        // I really hate this monolithic method... plzfix
+        // Initializers
         private void Initialize(Type p_type)
         {
             // retrieves Object table name and actual used type
@@ -682,12 +661,12 @@ namespace DBWizard
             List<FieldInfo> p_many_to_many_fields = new List<FieldInfo>();
 
             Dictionary<EFieldType, List<FieldInfo>> p_dict = new Dictionary<EFieldType, List<FieldInfo>>()
-			{
-				{ EFieldType.primitive, p_primitive_fields },
-				{ EFieldType.one_to_one, p_one_to_one_fields },
-				{ EFieldType.one_to_many, p_one_to_many_fields },
-				{ EFieldType.many_to_many, p_many_to_many_fields },
-			};
+            {
+                { EFieldType.primitive, p_primitive_fields },
+                { EFieldType.one_to_one, p_one_to_one_fields },
+                { EFieldType.one_to_many, p_one_to_many_fields },
+                { EFieldType.many_to_many, p_many_to_many_fields },
+            };
             for (Int32 i = 0; i < p_available_fields.Count; ++i)
             {
                 FieldInfo p_field_info = p_available_fields[i];
@@ -1148,10 +1127,224 @@ namespace DBWizard
             return p_assign_auto_increment_method;
         }
 
+        // Load Synchronous API
         internal CDBWizardStatus LoadObject(CDataBase p_data_base, SQL.CWhereCondition p_condition, CDataBaseObject p_db_obj)
         {
             List<CDataBaseObject> p_objs = new List<CDataBaseObject>();
-            CDBWizardStatus p_status = LoadObject(p_data_base, p_condition, new Dictionary<CDataBaseObject, CDataBaseObject>(), p_objs);
+            return HandleLoadObjectStatus(
+                LoadObject(p_data_base, p_condition, new Dictionary<CDataBaseObject, CDataBaseObject>(), p_objs),
+                p_db_obj,
+                p_objs
+            );
+        }
+        private CDBWizardStatus LoadObject(CDataBase p_data_base, SQL.CWhereCondition p_condition, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects, List<CDataBaseObject> p_objs)
+        {
+            Queries.CDataBaseQueryResult p_primitives_query_result = SelectPrimitives(p_data_base, p_condition);
+            HandleLoadPrimitivesResult(p_data_base, p_primitives_query_result, p_known_objects, p_objs);
+
+            CDataBaseResultSet p_result_set = p_primitives_query_result.m_p_result_set;
+            for (Int32 i = 0; i < p_result_set.Count; ++i)
+            {
+                CDataBaseObject p_obj = new CDataBaseObject(this);
+                CDBWizardStatus p_status = AssignObject(p_data_base, p_result_set[i], p_obj, p_known_objects);
+                p_status = HandleLoadAssignObjectResult(
+                    p_status,
+                    p_obj,
+                    p_known_objects,
+                    p_objs
+                );
+                if (p_status.IsError)
+                    return p_status;
+            }
+
+            return new CDBWizardStatus(EDBWizardStatusCode.success);
+        }
+        private CDBWizardStatus AssignObject(CDataBase p_data_base, CDataBaseRow p_row, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
+        {
+            HandleLoadAssignObjectPrimitives(p_row, p_db_obj, p_known_objects);
+            return SelectLinks(p_db_obj, p_data_base, p_row, p_known_objects);
+        }
+        private Queries.CDataBaseQueryResult SelectPrimitives(CDataBase p_data_base, SQL.CWhereCondition p_condition)
+        {
+            Queries.CDataBaseQueryResult p_primitives_query_result = new Queries.CSelectQuery(
+                p_data_base,
+                this,
+                m_p_object_table,
+                new String[] { "*" },
+                p_condition
+            ).Run();
+
+            return p_primitives_query_result;
+        }
+        private CDBWizardStatus SelectLinks(CDataBaseObject p_object, CDataBase p_data_base, CDataBaseRow p_row, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
+        {
+            Queries.CSelectQuery[] p_queries = new Queries.CSelectQuery[m_p_object_links.Count];
+
+            List<SObjectLink> p_relevant_links = new List<SObjectLink>(m_p_object_links);
+            List<String> p_linked_values_names = new List<String>(m_p_linked_values_names);
+            HashSet<String> p_known_links = new HashSet<String>(m_p_linked_values_names);
+            foreach (CObjectMap p_sub_class_map in CObjectMap.GetExistingSubClasses(m_p_object_type))
+            {
+                for (Int32 i = 0; i < p_sub_class_map.m_p_linked_values_names.Count; ++i)
+                {
+                    if (p_known_links.Add(p_sub_class_map.m_p_linked_values_names[i]))
+                    {
+                        p_relevant_links.Add(p_sub_class_map.m_p_object_links[i]);
+                        p_linked_values_names.Add(p_sub_class_map.m_p_linked_values_names[i]);
+                    }
+                }
+            }
+            for (Int32 i = 0; i < p_relevant_links.Count; ++i)
+            {
+                CObjectMap p_target_map;
+                SQL.CWhereCondition[] p_link_conditions;
+                Queries.CSelectQuery p_explorer_query;
+                if (!HandleLoadProcessTableLink(p_data_base, p_object, p_relevant_links[i], p_row, out p_target_map, out p_link_conditions, out p_explorer_query))
+                    continue;
+
+                if (p_target_map.m_p_object_type == null)
+                {
+                    // just continue exploration
+                    Queries.CDataBaseQueryResult p_linked_primitives_result = p_explorer_query.Run();
+                    if (p_linked_primitives_result.m_p_result_set.IsEmpty)
+                    {
+                        p_object.SetDBObject(null, p_linked_values_names[i]); // make sure there is at least an empty list for the given value name!
+                    }
+                    else
+                    {
+                        for (Int32 j = 0; j < p_linked_primitives_result.m_p_result_set.Count; ++j)
+                        {
+                            CDBWizardStatus p_status = p_target_map.SelectLinks(p_object, p_data_base, p_linked_primitives_result.m_p_result_set[j], p_known_objects);
+                            if (p_status.IsError)
+                            {
+                                return p_status;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // load additional db objects
+                    List<CDataBaseObject> p_linked_objs = new List<CDataBaseObject>();
+                    CDBWizardStatus p_status = p_target_map.LoadObject(p_data_base, new SQL.CWhereCondition(p_link_conditions), p_known_objects, p_linked_objs);
+                    if (p_status.m_status_code == EDBWizardStatusCode.err_no_object_found)
+                    {
+                        // do nothing, do not treat as error, specifically
+                        p_linked_objs = new List<CDataBaseObject>() { null };
+                    }
+                    else if (p_status.IsError)
+                    {
+                        return p_status;
+                    }
+                    p_object.SetDBObjects(p_linked_objs, p_linked_values_names[i]);
+                }
+            }
+            return new CDBWizardStatus(EDBWizardStatusCode.success);
+        }
+
+        // Load Asynchronous API
+        internal async Task<CDBWizardStatus> LoadObjectAsync(CDataBase p_data_base, SQL.CWhereCondition p_condition, CDataBaseObject p_db_obj)
+        {
+            List<CDataBaseObject> p_objs = new List<CDataBaseObject>();
+            return HandleLoadObjectStatus(
+                await LoadObjectAsync(p_data_base, p_condition, new Dictionary<CDataBaseObject, CDataBaseObject>(), p_objs),
+                p_db_obj,
+                p_objs
+            );
+        }
+        private async Task<CDBWizardStatus> LoadObjectAsync(CDataBase p_data_base, SQL.CWhereCondition p_condition, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects, List<CDataBaseObject> p_objs)
+        {
+            Queries.CDataBaseQueryResult p_primitives_query_result = await SelectPrimitivesAsync(p_data_base, p_condition);
+
+            HandleLoadPrimitivesResult(p_data_base, p_primitives_query_result, p_known_objects, p_objs);
+
+            CDataBaseResultSet p_result_set = p_primitives_query_result.m_p_result_set;
+            for (Int32 i = 0; i < p_result_set.Count; ++i)
+            {
+                CDataBaseObject p_obj = new CDataBaseObject(this);
+                CDBWizardStatus p_status = await AssignObjectAsync(p_data_base, p_result_set[i], p_obj, p_known_objects);
+                p_status = HandleLoadAssignObjectResult(
+                    p_status,
+                    p_obj,
+                    p_known_objects,
+                    p_objs
+                );
+                if (p_status.IsError)
+                    return p_status;
+            }
+
+            return new CDBWizardStatus(EDBWizardStatusCode.success);
+        }
+        private async Task<CDBWizardStatus> AssignObjectAsync(CDataBase p_data_base, CDataBaseRow p_row, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
+        {
+            HandleLoadAssignObjectPrimitives(p_row, p_db_obj, p_known_objects);
+            return await SelectLinksAsync(p_db_obj, p_data_base, p_row, p_known_objects);
+        }
+        private async Task<Queries.CDataBaseQueryResult> SelectPrimitivesAsync(CDataBase p_data_base, SQL.CWhereCondition p_condition)
+        {
+            Queries.CDataBaseQueryResult p_primitives_query_result = await new Queries.CSelectQuery(
+                p_data_base,
+                this,
+                m_p_object_table,
+                new String[] { "*" },
+                p_condition
+            ).RunAsync();
+
+            return p_primitives_query_result;
+        }
+        private async Task<CDBWizardStatus> SelectLinksAsync(CDataBaseObject p_object, CDataBase p_data_base, CDataBaseRow p_row, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
+        {
+            for (Int32 i = 0; i < m_p_object_links.Count; ++i)
+            {
+                CObjectMap p_target_map;
+                SQL.CWhereCondition[] p_link_conditions;
+                Queries.CSelectQuery p_explorer_query;
+                if (!HandleLoadProcessTableLink(p_data_base, p_object, m_p_object_links[i], p_row, out p_target_map, out p_link_conditions, out p_explorer_query))
+                    continue;
+
+                if (p_target_map.m_p_object_type == null)
+                {
+                    // just continue exploration
+                    Queries.CDataBaseQueryResult p_linked_primitives_result = await p_explorer_query.RunAsync();
+                    if (p_linked_primitives_result.m_p_result_set.IsEmpty)
+                    {
+                        p_object.SetDBObject(null, m_p_linked_values_names[i]); // make sure there is at least an empty list for the given value name!
+                    }
+                    else
+                    {
+                        for (Int32 j = 0; j < p_linked_primitives_result.m_p_result_set.Count; ++j)
+                        {
+                            CDBWizardStatus p_status = await p_target_map.SelectLinksAsync(p_object, p_data_base, p_linked_primitives_result.m_p_result_set[j], p_known_objects);
+                            if (p_status.IsError)
+                            {
+                                return p_status;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // load additional db objects
+                    List<CDataBaseObject> p_linked_objs = new List<CDataBaseObject>();
+                    CDBWizardStatus p_status = await p_target_map.LoadObjectAsync(p_data_base, new SQL.CWhereCondition(p_link_conditions), p_known_objects, p_linked_objs);
+                    if (p_status.m_status_code == EDBWizardStatusCode.err_no_object_found)
+                    {
+                        // do nothing, do not treat as error, specifically
+                        p_linked_objs = new List<CDataBaseObject>() { null };
+                    }
+                    else if (p_status.IsError)
+                    {
+                        return p_status;
+                    }
+                    p_object.SetDBObjects(p_linked_objs, m_p_linked_values_names[i]);
+                }
+            }
+            return new CDBWizardStatus(EDBWizardStatusCode.success);
+        }
+
+        // Loading Shared Code
+        private CDBWizardStatus HandleLoadObjectStatus(CDBWizardStatus p_status, CDataBaseObject p_db_obj, List<CDataBaseObject> p_objs)
+        {
             if (p_status.IsError)
             {
                 p_db_obj = null;
@@ -1170,10 +1363,8 @@ namespace DBWizard
             p_db_obj.CopyFrom(p_objs[0]);
             return new CDBWizardStatus(EDBWizardStatusCode.success);
         }
-        private CDBWizardStatus LoadObject(CDataBase p_data_base, SQL.CWhereCondition p_condition, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects, List<CDataBaseObject> p_objs)
+        private CDBWizardStatus HandleLoadPrimitivesResult(CDataBase p_data_base, Queries.CDataBaseQueryResult p_primitives_query_result, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects, List<CDataBaseObject> p_objs)
         {
-            Queries.CDataBaseQueryResult p_primitives_query_result = SelectPrimitives(p_data_base, p_condition);
-
             if (p_primitives_query_result.m_p_exception != null)
             {
                 return new CDBWizardStatus(EDBWizardStatusCode.err_exception_thrown, p_primitives_query_result.m_p_exception);
@@ -1185,25 +1376,24 @@ namespace DBWizard
                 return new CDBWizardStatus(EDBWizardStatusCode.err_no_object_found);
             }
 
-            for (Int32 i = 0; i < p_result_set.Count; ++i)
+            return new CDBWizardStatus(EDBWizardStatusCode.success);
+        }
+        private CDBWizardStatus HandleLoadAssignObjectResult(CDBWizardStatus p_status, CDataBaseObject p_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects, List<CDataBaseObject> p_objs)
+        {
+            if (p_status.m_status_code == EDBWizardStatusCode.err_multiple_objects_found)
             {
-                CDataBaseObject p_obj = new CDataBaseObject(this);
-                CDBWizardStatus p_status = AssignObject(p_data_base, p_result_set[i], p_obj, p_known_objects);
-                if (p_status.m_status_code == EDBWizardStatusCode.err_multiple_objects_found)
-                {
-                    p_obj = p_known_objects[p_obj];
-                }
-                else if (p_status.IsError)
-                {
-                    return p_status;
-                }
-
-                p_objs.Add(p_obj);
+                p_obj = p_known_objects[p_obj];
             }
+            else if (p_status.IsError)
+            {
+                return p_status;
+            }
+
+            p_objs.Add(p_obj);
 
             return new CDBWizardStatus(EDBWizardStatusCode.success);
         }
-        private CDBWizardStatus AssignObject(CDataBase p_data_base, CDataBaseRow p_row, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
+        private CDBWizardStatus HandleLoadAssignObjectPrimitives(CDataBaseRow p_row, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
         {
             List<CObjectMap> p_sub_classes = CObjectMap.GetExistingSubClasses(m_p_object_type);
             if (p_sub_classes.Count == 0)
@@ -1250,358 +1440,61 @@ namespace DBWizard
             }
             p_known_objects.Add(p_db_obj, p_db_obj);
 
-            return SelectLinks(p_db_obj, p_data_base, p_row, p_known_objects);
+            return new CDBWizardStatus(EDBWizardStatusCode.success);
         }
-        private Queries.CDataBaseQueryResult SelectPrimitives(CDataBase p_data_base, SQL.CWhereCondition p_condition)
+        private Boolean HandleLoadProcessTableLink(CDataBase p_data_base, CDataBaseObject p_object, SObjectLink table_link, CDataBaseRow p_row, out CObjectMap p_target_map, out SQL.CWhereCondition[] p_link_conditions, out Queries.CSelectQuery p_explorer_query)
         {
-            Queries.CDataBaseQueryResult p_primitives_query_result = new Queries.CSelectQuery(
-                p_data_base,
-                this,
-                m_p_object_table,
-                new String[] { "*" },
-                p_condition
-            ).Run();
+            CForeignKey p_foreign_key_link = table_link.m_p_foreign_key;
+            p_target_map = table_link.m_p_target_map;
 
-            return p_primitives_query_result;
-        }
-        private CDBWizardStatus SelectLinks(CDataBaseObject p_object, CDataBase p_data_base, CDataBaseRow p_row, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
-        {
-            Queries.CSelectQuery[] p_queries = new Queries.CSelectQuery[m_p_object_links.Count];
+            ReadOnlyCollection<String> p_source_columns = table_link.m_p_foreign_key.m_p_source_columns;
+            ReadOnlyCollection<String> p_target_columns = table_link.m_p_foreign_key.m_p_target_columns;
 
-            List<SObjectLink> p_relevant_links = new List<SObjectLink>(m_p_object_links);
-            List<String> p_linked_values_names = new List<String>(m_p_linked_values_names);
-            HashSet<String> p_known_links = new HashSet<String>(m_p_linked_values_names);
-            foreach (CObjectMap p_sub_class_map in CObjectMap.GetExistingSubClasses(m_p_object_type))
+            Boolean has_linked_objects = true;
+            p_link_conditions = new SQL.CWhereCondition[p_target_columns.Count];
+            for (Int32 k = 0; k < p_target_columns.Count; ++k)
             {
-                for (Int32 i = 0; i < p_sub_class_map.m_p_linked_values_names.Count; ++i)
+                if (p_row[p_source_columns[k]] is DBNull)
                 {
-                    if (p_known_links.Add(p_sub_class_map.m_p_linked_values_names[i]))
-                    {
-                        p_relevant_links.Add(p_sub_class_map.m_p_object_links[i]);
-                        p_linked_values_names.Add(p_sub_class_map.m_p_linked_values_names[i]);
-                    }
+                    p_object.SetDBObjects(new List<CDataBaseObject>() { null }, m_p_linked_values_names[i]);
+                    has_linked_objects = false;
+                    break;
                 }
-            }
-            for (Int32 i = 0; i < p_relevant_links.Count; ++i)
-            {
-                SObjectLink table_link = p_relevant_links[i];
-                CForeignKey p_foreign_key_link = table_link.m_p_foreign_key;
-                CObjectMap p_target_map = table_link.m_p_target_map;
 
-                ReadOnlyCollection<String> p_source_columns = p_foreign_key_link.m_p_source_columns;
-                ReadOnlyCollection<String> p_target_columns = p_foreign_key_link.m_p_target_columns;
-
-                Boolean has_linked_objects = true;
-                SQL.CWhereCondition[] p_link_conditions = new SQL.CWhereCondition[p_target_columns.Count];
-                for (Int32 k = 0; k < p_target_columns.Count; ++k)
-                {
-                    if (p_row[p_source_columns[k]] is DBNull)
-                    {
-                        p_object.SetDBObjects(new List<CDataBaseObject>() { null }, p_linked_values_names[i]);
-                        has_linked_objects = false;
-                        break;
-                    }
-
-                    p_link_conditions[k] = new SQL.CWhereCondition(
-                        p_target_columns[k],
-                        "=",
-                        p_row.Get<Object>(p_source_columns[k]).ToString(),
-                        null,
-                        SQL.EBooleanOperator.and
-                    );
-                }
-                if (!has_linked_objects)
-                    continue;
-
-                Queries.CSelectQuery p_explorer_query = new Queries.CSelectQuery(
-                    p_data_base,
-                    table_link.m_p_target_map,
-                    table_link.m_p_target_map.m_p_object_table,
-                    new String[] { "*" },
-                    new SQL.CWhereCondition(p_link_conditions)
+                p_link_conditions[k] = new SQL.CWhereCondition(
+                    p_target_columns[k],
+                    "=",
+                    p_row.Get<Object>(p_source_columns[k]).ToString(),
+                    null,
+                    SQL.EBooleanOperator.and
                 );
-                if (p_target_map.m_p_object_type == null)
-                {
-                    // just continue exploration
-                    Queries.CDataBaseQueryResult p_linked_primitives_result = p_explorer_query.Run();
-                    if (p_linked_primitives_result.m_p_result_set.IsEmpty)
-                    {
-                        p_object.SetDBObject(null, p_linked_values_names[i]); // make sure there is at least an empty list for the given value name!
-                    }
-                    else
-                    {
-                        for (Int32 j = 0; j < p_linked_primitives_result.m_p_result_set.Count; ++j)
-                        {
-                            CDBWizardStatus p_status = p_target_map.SelectLinks(p_object, p_data_base, p_linked_primitives_result.m_p_result_set[j], p_known_objects);
-                            if (p_status.IsError)
-                            {
-                                return p_status;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    // load additional db objects
-                    List<CDataBaseObject> p_linked_objs = new List<CDataBaseObject>();
-                    CDBWizardStatus p_status = p_target_map.LoadObject(p_data_base, new SQL.CWhereCondition(p_link_conditions), p_known_objects, p_linked_objs);
-                    if (p_status.m_status_code == EDBWizardStatusCode.err_no_object_found)
-                    {
-                        // do nothing, do not treat as error, specifically
-                        p_linked_objs = new List<CDataBaseObject>() { null };
-                    }
-                    else if (p_status.IsError)
-                    {
-                        return p_status;
-                    }
-                    p_object.SetDBObjects(p_linked_objs, p_linked_values_names[i]);
-                }
             }
-            return new CDBWizardStatus(EDBWizardStatusCode.success);
-        }
-
-        internal async Task<CDBWizardStatus> LoadObjectAsync(CDataBase p_data_base, SQL.CWhereCondition p_condition, CDataBaseObject p_db_obj)
-        {
-            List<CDataBaseObject> p_objs = new List<CDataBaseObject>();
-            CDBWizardStatus p_status = await LoadObjectAsync(p_data_base, p_condition, new Dictionary<CDataBaseObject, CDataBaseObject>(), p_objs);
-            if (p_status.IsError)
+            if (!has_linked_objects)
             {
-                p_db_obj = null;
-                return p_status;
-            }
-            if (p_objs.Count == 0)
-            {
-                p_db_obj = null;
-                return new CDBWizardStatus(EDBWizardStatusCode.err_no_object_found);
-            }
-            else if (p_objs.Count > 1)
-            {
-                p_db_obj = null;
-                return new CDBWizardStatus(EDBWizardStatusCode.err_multiple_objects_found);
-            }
-            p_db_obj.CopyFrom(p_objs[0]);
-            return new CDBWizardStatus(EDBWizardStatusCode.success);
-        }
-        private async Task<CDBWizardStatus> LoadObjectAsync(CDataBase p_data_base, SQL.CWhereCondition p_condition, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects, List<CDataBaseObject> p_objs)
-        {
-            Queries.CDataBaseQueryResult p_primitives_query_result = await SelectPrimitivesAsync(p_data_base, p_condition);
-
-            if (p_primitives_query_result.m_p_exception != null)
-            {
-                return new CDBWizardStatus(EDBWizardStatusCode.err_exception_thrown, p_primitives_query_result.m_p_exception);
+                p_explorer_query = null;
+                return false;
             }
 
-            CDataBaseResultSet p_result_set = p_primitives_query_result.m_p_result_set;
-            if (p_result_set.IsEmpty)
-            {
-                return new CDBWizardStatus(EDBWizardStatusCode.err_no_object_found);
-            }
-
-            for (Int32 i = 0; i < p_result_set.Count; ++i)
-            {
-                CDataBaseObject p_obj = new CDataBaseObject(this);
-                CDBWizardStatus p_status = await AssignObjectAsync(p_data_base, p_result_set[i], p_obj, p_known_objects);
-                if (p_status.m_status_code == EDBWizardStatusCode.err_multiple_objects_found)
-                {
-                    p_obj = p_known_objects[p_obj];
-                }
-                else if (p_status.IsError)
-                {
-                    return p_status;
-                }
-
-                p_objs.Add(p_obj);
-            }
-
-            return new CDBWizardStatus(EDBWizardStatusCode.success);
-        }
-        private async Task<CDBWizardStatus> AssignObjectAsync(CDataBase p_data_base, CDataBaseRow p_row, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
-        {
-            List<CObjectMap> p_sub_classes = CObjectMap.GetExistingSubClasses(m_p_object_type);
-            if (p_sub_classes.Count == 0)
-            {
-                p_sub_classes.Add(this);
-            }
-            Dictionary<String, SStorePrimitiveOptions> p_full_primitives = new Dictionary<String, SStorePrimitiveOptions>();
-            for (Int32 i = 0; i < p_sub_classes.Count; ++i)
-            {
-                CObjectMap p_sub_class_map = p_sub_classes[i];
-                // since subclasses always contain the base-class primitives, just going through the subclasses is fine
-                // should there be no subclasses initially, only the base-class is considered
-                foreach (KeyValuePair<String, SStorePrimitiveOptions> primitive_entry in p_sub_class_map.m_p_primitives_map)
-                {
-                    if (p_full_primitives.ContainsKey(primitive_entry.Key)) continue;
-
-                    p_full_primitives.Add(primitive_entry.Key, primitive_entry.Value);
-                }
-            }
-
-            foreach (KeyValuePair<String, SStorePrimitiveOptions> primitive_entry in p_full_primitives)
-            {
-                Object p_row_value;
-                if (!p_row.TryGetValue(primitive_entry.Value.m_p_column_name, out p_row_value))
-                {
-                    throw new Exception("Could not find selected value for column \"" + primitive_entry.Value.m_p_column_name + "\". Perhaps your table does not contain such a column?");
-                }
-
-                switch (p_db_obj.SetPrimitive(primitive_entry.Value.m_p_column_name, p_row_value))
-                {
-                    case CDataBaseObject.ESetPrimitiveStatus.err_type_mismatch:
-                        throw new Exception("The column type specified in your mysql table for column \"" + primitive_entry.Value.m_p_column_name + "\" does not match the specified primitive type associated with the column in type " + m_p_object_type.FullName);
-                    case CDataBaseObject.ESetPrimitiveStatus.err_unknown_column:
-                        throw new Exception("The DBWizard completely fucked up, basically. The column \"" + primitive_entry.Value.m_p_column_name + "\" is not known to be in type " + m_p_object_type.FullName + " despite being selected as being eligible for that same type.");
-                    case CDataBaseObject.ESetPrimitiveStatus.err_unknown_primitive_type:
-                        throw new Exception("Your primitive for column type \"" + primitive_entry.Value.m_p_column_name + "\" in type " + m_p_object_type.FullName + " has an unknown type.");
-                }
-            }
-
-            CDataBaseObject p_known_object;
-            if (p_known_objects.TryGetValue(p_db_obj, out p_known_object))
-            {
-                return new CDBWizardStatus(EDBWizardStatusCode.err_multiple_objects_found); // Object already loaded, thus error!
-            }
-            p_known_objects.Add(p_db_obj, p_db_obj);
-
-            return await SelectLinksAsync(p_db_obj, p_data_base, p_row, p_known_objects);
-        }
-        private async Task<Queries.CDataBaseQueryResult> SelectPrimitivesAsync(CDataBase p_data_base, SQL.CWhereCondition p_condition)
-        {
-            Queries.CDataBaseQueryResult p_primitives_query_result = await new Queries.CSelectQuery(
+            p_explorer_query = new Queries.CSelectQuery(
                 p_data_base,
-                this,
-                m_p_object_table,
+                table_link.m_p_target_map,
+                table_link.m_p_target_map.m_p_object_table,
                 new String[] { "*" },
-                p_condition
-            ).RunAsync();
-
-            return p_primitives_query_result;
-        }
-        private async Task<CDBWizardStatus> SelectLinksAsync(CDataBaseObject p_object, CDataBase p_data_base, CDataBaseRow p_row, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
-        {
-            Queries.CSelectQuery[] p_queries = new Queries.CSelectQuery[m_p_object_links.Count];
-            for (Int32 i = 0; i < m_p_object_links.Count; ++i)
-            {
-                SObjectLink table_link = m_p_object_links[i];
-                CForeignKey p_foreign_key_link = table_link.m_p_foreign_key;
-                CObjectMap p_target_map = table_link.m_p_target_map;
-
-                ReadOnlyCollection<String> p_source_columns = p_foreign_key_link.m_p_source_columns;
-                ReadOnlyCollection<String> p_target_columns = p_foreign_key_link.m_p_target_columns;
-
-                Boolean has_linked_objects = true;
-                SQL.CWhereCondition[] p_link_conditions = new SQL.CWhereCondition[p_target_columns.Count];
-                for (Int32 k = 0; k < p_target_columns.Count; ++k)
-                {
-                    if (p_row[p_source_columns[k]] is DBNull)
-                    {
-                        p_object.SetDBObjects(new List<CDataBaseObject>() { null }, m_p_linked_values_names[i]);
-                        has_linked_objects = false;
-                        break;
-                    }
-
-                    p_link_conditions[k] = new SQL.CWhereCondition(
-                        p_target_columns[k],
-                        "=",
-                        p_row.Get<Object>(p_source_columns[k]).ToString(),
-                        null,
-                        SQL.EBooleanOperator.and
-                    );
-                }
-                if (!has_linked_objects)
-                    continue;
-
-                Queries.CSelectQuery p_explorer_query = new Queries.CSelectQuery(
-                    p_data_base,
-                    table_link.m_p_target_map,
-                    table_link.m_p_target_map.m_p_object_table,
-                    new String[] { "*" },
-                    new SQL.CWhereCondition(p_link_conditions)
-                );
-                if (p_target_map.m_p_object_type == null)
-                {
-                    // just continue exploration
-                    Queries.CDataBaseQueryResult p_linked_primitives_result = await p_explorer_query.RunAsync();
-                    if (p_linked_primitives_result.m_p_result_set.IsEmpty)
-                    {
-                        p_object.SetDBObject(null, m_p_linked_values_names[i]); // make sure there is at least an empty list for the given value name!
-                    }
-                    else
-                    {
-                        for (Int32 j = 0; j < p_linked_primitives_result.m_p_result_set.Count; ++j)
-                        {
-                            CDBWizardStatus p_status = await p_target_map.SelectLinksAsync(p_object, p_data_base, p_linked_primitives_result.m_p_result_set[j], p_known_objects);
-                            if (p_status.IsError)
-                            {
-                                return p_status;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    // load additional db objects
-                    List<CDataBaseObject> p_linked_objs = new List<CDataBaseObject>();
-                    CDBWizardStatus p_status = await p_target_map.LoadObjectAsync(p_data_base, new SQL.CWhereCondition(p_link_conditions), p_known_objects, p_linked_objs);
-                    if (p_status.m_status_code == EDBWizardStatusCode.err_no_object_found)
-                    {
-                        // do nothing, do not treat as error, specifically
-                        p_linked_objs = new List<CDataBaseObject>() { null };
-                    }
-                    else if (p_status.IsError)
-                    {
-                        return p_status;
-                    }
-                    p_object.SetDBObjects(p_linked_objs, m_p_linked_values_names[i]);
-                }
-            }
-            return new CDBWizardStatus(EDBWizardStatusCode.success);
+                new SQL.CWhereCondition(p_link_conditions)
+            );
+            return true;
         }
 
+        // Save Synchronous API
         internal CDBWizardStatus SaveObject<T>(CDataBase p_data_base, T p_obj)
         {
             CDataBaseObject p_db_obj = new CDataBaseObject(CObjectMap.Get(p_obj.GetType()));
             p_db_obj.MapFrom(p_obj, new Dictionary<Object, CDataBaseObject>());
 
-            Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map = SaveObject(p_data_base, p_db_obj, new Dictionary<CDataBaseObject, CDataBaseObject>());
-            Queries.CDataBaseQuery[] p_queries = p_query_map.Keys.ToArray();
-
-            List<Queries.CInsertQuery> p_insert_queries = (from p_query in p_queries where p_query is Queries.CInsertQuery select (Queries.CInsertQuery)p_query).ToList();
-            List<Queries.CDeleteQuery> p_delete_queries = (from p_query in p_queries where p_query is Queries.CDeleteQuery select (Queries.CDeleteQuery)p_query).ToList();
-
-            Dictionary<CDataBaseObject, Int32> p_other_indices = new Dictionary<CDataBaseObject, Int32>();
-            for (Int32 i = 0; i < p_insert_queries.Count; ++i)
-            {
-                Int32 other_index;
-                if (p_other_indices.TryGetValue(p_query_map[p_insert_queries[i]], out other_index))
-                {
-                    p_insert_queries.RemoveAt(other_index);
-                    --i;
-                }
-                p_other_indices[p_query_map[p_insert_queries[i]]] = i;
-            }
-
-            Dictionary<String, List<Queries.CInsertQuery>> p_insert_queries_by_table = new Dictionary<String, List<Queries.CInsertQuery>>();
-            for (Int32 i = 0; i < p_insert_queries.Count; ++i)
-            {
-                List<Queries.CInsertQuery> p_sub_list;
-                if (!p_insert_queries_by_table.TryGetValue(p_insert_queries[i].m_p_table_name, out p_sub_list))
-                {
-                    p_sub_list = new List<Queries.CInsertQuery>();
-                    p_insert_queries_by_table[p_insert_queries[i].m_p_table_name] = p_sub_list;
-                }
-                p_sub_list.Add(p_insert_queries[i]);
-            }
-
-            /*p_insert_queries.Clear();
-            foreach (KeyValuePair<String, List<Queries.CInsertQuery>> queries_by_table_entry in p_insert_queries_by_table)
-            {
-                List<Queries.CInsertQuery> p_mergable_queries = queries_by_table_entry.Value;
-                for (Int32 i = 0; i < p_mergable_queries.Count; ++i)
-                {
-
-                }
-                p_insert_queries.Add(MergeInsertQueries(p_data_base, queries_by_table_entry.Value));
-            }*/
+            List<Queries.CInsertQuery> p_insert_queries;
+            List<Queries.CDeleteQuery> p_delete_queries;
+            Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map;
+            HandleSavePrepareQueries(p_data_base, p_db_obj, out p_insert_queries, out p_delete_queries, out p_query_map);
 
             DbConnection p_connection = p_data_base.GetConnection();
             DbTransaction p_trans_action = p_connection.BeginTransaction();
@@ -1657,39 +1550,16 @@ namespace DBWizard
             // TODO: Research EnlistTransaction function and stuff so you actually know what youre doing :V
         }
 
+        // Save Asynchronous API
         internal async Task<CDBWizardStatus> SaveObjectAsync<T>(CDataBase p_data_base, T p_obj)
         {
             CDataBaseObject p_db_obj = new CDataBaseObject(CObjectMap.Get(p_obj.GetType()));
             p_db_obj.MapFrom(p_obj, new Dictionary<Object, CDataBaseObject>());
 
-            Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map = SaveObject(p_data_base, p_db_obj, new Dictionary<CDataBaseObject, CDataBaseObject>());
-            Queries.CDataBaseQuery[] p_queries = p_query_map.Keys.ToArray();
-
-            List<Queries.CInsertQuery> p_insert_queries = (from p_query in p_queries where p_query is Queries.CInsertQuery select (Queries.CInsertQuery)p_query).ToList();
-            List<Queries.CDeleteQuery> p_delete_queries = (from p_query in p_queries where p_query is Queries.CDeleteQuery select (Queries.CDeleteQuery)p_query).ToList();
-
-            Dictionary<String, List<Queries.CInsertQuery>> p_insert_queries_by_table = new Dictionary<String, List<Queries.CInsertQuery>>();
-            for (Int32 i = 0; i < p_insert_queries.Count; ++i)
-            {
-                List<Queries.CInsertQuery> p_sub_list;
-                if (!p_insert_queries_by_table.TryGetValue(p_insert_queries[i].m_p_table_name, out p_sub_list))
-                {
-                    p_sub_list = new List<Queries.CInsertQuery>();
-                    p_insert_queries_by_table[p_insert_queries[i].m_p_table_name] = p_sub_list;
-                }
-                p_sub_list.Add(p_insert_queries[i]);
-            }
-
-            /*p_insert_queries.Clear();
-            foreach (KeyValuePair<String, List<Queries.CInsertQuery>> queries_by_table_entry in p_insert_queries_by_table)
-            {
-                List<Queries.CInsertQuery> p_mergable_queries = queries_by_table_entry.Value;
-                for (Int32 i = 0; i < p_mergable_queries.Count; ++i)
-                {
-
-                }
-                p_insert_queries.Add(MergeInsertQueries(p_data_base, queries_by_table_entry.Value));
-            }*/
+            List<Queries.CInsertQuery> p_insert_queries;
+            List<Queries.CDeleteQuery> p_delete_queries;
+            Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map;
+            HandleSavePrepareQueries(p_data_base, p_db_obj, out p_insert_queries, out p_delete_queries, out p_query_map);
 
             DbConnection p_connection = await p_data_base.GetConnectionAsync();
             DbTransaction p_trans_action = p_connection.BeginTransaction();
@@ -1745,6 +1615,7 @@ namespace DBWizard
             // TODO: Research EnlistTransaction function and stuff so you actually know what youre doing :V
         }
 
+        // Save API helpers
         private Dictionary<Queries.CDataBaseQuery, CDataBaseObject> SaveObject(CDataBase p_data_base, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
         {
             Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_queries = new Dictionary<Queries.CDataBaseQuery, CDataBaseObject>();
@@ -1887,6 +1758,32 @@ namespace DBWizard
             return p_queries;
         }
 
+        // Save Shared Code
+        private void HandleSavePrepareQueries(CDataBase p_data_base, CDataBaseObject p_obj, out List<Queries.CInsertQuery> p_insert_queries, out List<Queries.CDeleteQuery> p_delete_queries, out Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map)
+        {
+            CDataBaseObject p_db_obj = new CDataBaseObject(CObjectMap.Get(p_obj.GetType()));
+            p_db_obj.MapFrom(p_obj, new Dictionary<Object, CDataBaseObject>());
+
+            p_query_map = SaveObject(p_data_base, p_db_obj, new Dictionary<CDataBaseObject, CDataBaseObject>());
+            Queries.CDataBaseQuery[] p_queries = p_query_map.Keys.ToArray();
+
+            p_insert_queries = (from p_query in p_queries where p_query is Queries.CInsertQuery select (Queries.CInsertQuery)p_query).ToList();
+            p_delete_queries = (from p_query in p_queries where p_query is Queries.CDeleteQuery select (Queries.CDeleteQuery)p_query).ToList();
+
+            Dictionary<String, List<Queries.CInsertQuery>> p_insert_queries_by_table = new Dictionary<String, List<Queries.CInsertQuery>>();
+            for (Int32 i = 0; i < p_insert_queries.Count; ++i)
+            {
+                List<Queries.CInsertQuery> p_sub_list;
+                if (!p_insert_queries_by_table.TryGetValue(p_insert_queries[i].m_p_table_name, out p_sub_list))
+                {
+                    p_sub_list = new List<Queries.CInsertQuery>();
+                    p_insert_queries_by_table[p_insert_queries[i].m_p_table_name] = p_sub_list;
+                }
+                p_sub_list.Add(p_insert_queries[i]);
+            }
+        }
+
+        // Delete Synchronous API
         internal CDBWizardStatus DeleteObject<T>(CDataBase p_data_base, T obj)
         {
             CDataBaseObject p_db_obj = new CDataBaseObject(obj);
@@ -1916,6 +1813,7 @@ namespace DBWizard
             return new CDBWizardStatus(EDBWizardStatusCode.success);
         }
 
+        // Delete Asynchronous API
         internal async Task<CDBWizardStatus> DeleteObjectAsync<T>(CDataBase p_data_base, T obj)
         {
             CDataBaseObject p_db_obj = new CDataBaseObject(obj);

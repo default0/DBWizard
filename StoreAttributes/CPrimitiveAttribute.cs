@@ -58,6 +58,17 @@ namespace DBWizard.StoreAttributes
         /// </summary>
         /// <param name="primitive_type">The primitive type to store.</param>
         /// <param name="p_column_name">The name of the column to store the data in.</param>
+        /// <param name="store_options">Specifies how the data should be loaded.</param>
+        public CPrimitiveAttribute(EDBPrimitive primitive_type, String p_column_name, EStoreOptions store_options)
+            : this(primitive_type, p_column_name, false, store_options)
+        {
+        }
+
+        /// <summary>
+        /// Constructs a new primitive store attribute with the given primitive type, column name and auto conversion option.
+        /// </summary>
+        /// <param name="primitive_type">The primitive type to store.</param>
+        /// <param name="p_column_name">The name of the column to store the data in.</param>
         /// <param name="auto_convert">Whether the field this attribute is associated with should be automatically converted to the given primitive type.</param>
         /// <param name="store_options">Specifies how the data should be loaded.</param>
         public CPrimitiveAttribute(EDBPrimitive primitive_type, String p_column_name, Boolean auto_convert, EStoreOptions store_options)

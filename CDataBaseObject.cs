@@ -27,7 +27,13 @@ namespace DBWizard
             err_table_not_linked = 10,
             err_table_link_ambiguous = 11,
         }
+        delegate void MapToStructDelegate<T>(ref T p_struct, CDataBaseObject p_db_obj);
 
+        /// <summary>
+        /// Returns the value for the given column of this database object.
+        /// </summary>
+        /// <param name="p_column_name">The name of the column to return the value for.</param>
+        /// <returns>The value of the column with the given name.</returns>
         public Object this[String p_column_name]
         {
             get
@@ -37,6 +43,28 @@ namespace DBWizard
                 return _m_p_values[p_column_name];
             }
         }
+        /// <summary>
+        /// Returns the value of the primary key of this database object, null if the object does not have a primary key, or an array of primary keys if there are multiple.
+        /// </summary>
+        public Object PrimaryKey
+        {
+            get
+            {
+                List<SStorePrimitiveOptions> p_unique_keys = m_p_map.m_p_unique_keys;
+                if (p_unique_keys.Count == 0)
+                    return null;
+                else if (p_unique_keys.Count == 1)
+                    return this[p_unique_keys[0].m_p_column_name];
+
+                Object[] p_primary_keys = new Object[p_unique_keys.Count];
+                for (Int32 i = 0; i < p_unique_keys.Count; ++i)
+                {
+                    p_primary_keys[i] = this[p_unique_keys[i].m_p_column_name];
+                }
+                return p_primary_keys;
+            }
+        }
+
 
         internal Boolean IsEmpty { get { return _m_p_values.Count == 0; } }
 
@@ -73,8 +101,6 @@ namespace DBWizard
             Action<CDataBaseObject> p_delegate = (Action<CDataBaseObject>)CObjectMap.Get(p_obj.GetType()).m_p_map_to_method.CreateDelegate(typeof(Action<CDataBaseObject>), p_obj);
             p_delegate(this);
         }
-
-        delegate void MapToStructDelegate<T>(ref T p_struct, CDataBaseObject p_db_obj);
         public void MapToStruct<T>(ref T p_obj) where T : struct
         {
             MapToStructDelegate<T> p_delegate = (MapToStructDelegate<T>)CObjectMap.Get(p_obj.GetType()).m_p_map_to_method.CreateDelegate(typeof(MapToStructDelegate<T>));

@@ -13,15 +13,16 @@ namespace DBWizard
     internal struct SStorePrimitiveOptions
     {
         /// <summary>
-        /// Whether to auto-convert the value of the field to the primitive type.
-        /// </summary>
-        internal Boolean m_auto_convert { get; private set; }
-        /// <summary>
         /// The primitive type to store in the database.
         /// </summary>
         internal EDBPrimitive m_primitive_type { get; private set; }
 
         internal Boolean m_is_identity { get; set; }
+
+        /// <summary>
+        /// Whether values of this primitive should be automatically tried to be converted to the right type.
+        /// </summary>
+        internal Boolean m_auto_convert { get; private set; }
 
         /// <summary>
         /// The name of the column in the table that holds the primitive.
@@ -46,7 +47,6 @@ namespace DBWizard
         /// <param name="p_column_name">The name of the column in the table.</param>
         /// <param name="primitive_type">The type of the database primitive.</param>
         /// <param name="p_field">The field holding the value that maps to the primitive.</param>
-        /// <param name="auto_convert">Whether to auto-convert the value of the field to the primitive type.</param>
         /// <param name="load_options">Specified the way the primitive data should be loaded.</param>
         internal SStorePrimitiveOptions(String p_column_name, EDBPrimitive primitive_type, FieldInfo p_field, MethodInfo p_method, Boolean auto_convert, EStoreOptions load_options)
             : this()
