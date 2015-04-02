@@ -1452,19 +1452,19 @@ namespace DBWizard
 
             Boolean has_linked_objects = true;
             p_link_conditions = new SQL.CWhereCondition[p_target_columns.Count];
-            for (Int32 k = 0; k < p_target_columns.Count; ++k)
+            for (Int32 i = 0; i < p_target_columns.Count; ++i)
             {
-                if (p_row[p_source_columns[k]] is DBNull)
+                if (p_row[p_source_columns[i]] is DBNull)
                 {
                     p_object.SetDBObjects(new List<CDataBaseObject>() { null }, m_p_linked_values_names[i]);
                     has_linked_objects = false;
                     break;
                 }
 
-                p_link_conditions[k] = new SQL.CWhereCondition(
-                    p_target_columns[k],
+                p_link_conditions[i] = new SQL.CWhereCondition(
+                    p_target_columns[i],
                     "=",
-                    p_row.Get<Object>(p_source_columns[k]).ToString(),
+                    p_row.Get<Object>(p_source_columns[i]).ToString(),
                     null,
                     SQL.EBooleanOperator.and
                 );
