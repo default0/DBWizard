@@ -1759,11 +1759,8 @@ namespace DBWizard
         }
 
         // Save Shared Code
-        private void HandleSavePrepareQueries(CDataBase p_data_base, CDataBaseObject p_obj, out List<Queries.CInsertQuery> p_insert_queries, out List<Queries.CDeleteQuery> p_delete_queries, out Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map)
+        private void HandleSavePrepareQueries(CDataBase p_data_base, CDataBaseObject p_db_obj, out List<Queries.CInsertQuery> p_insert_queries, out List<Queries.CDeleteQuery> p_delete_queries, out Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map)
         {
-            CDataBaseObject p_db_obj = new CDataBaseObject(CObjectMap.Get(p_obj.GetType()));
-            p_db_obj.MapFrom(p_obj, new Dictionary<Object, CDataBaseObject>());
-
             p_query_map = SaveObject(p_data_base, p_db_obj, new Dictionary<CDataBaseObject, CDataBaseObject>());
             Queries.CDataBaseQuery[] p_queries = p_query_map.Keys.ToArray();
 

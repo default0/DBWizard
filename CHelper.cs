@@ -84,5 +84,17 @@ namespace DBWizard
                     throw new Exception("Cannot create a primitive type from " + db_primitive.ToString());
             }
         }
+
+        internal static String ToValueString(Object p_value)
+        {
+            if(p_value is System.Byte[])
+            {
+                return ((System.Byte[])p_value).ToLowerHex();
+            }
+            else
+            {
+                return p_value.ToString();
+            }
+        }
     }
 }

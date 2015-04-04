@@ -218,7 +218,7 @@ namespace DBWizard.Queries
                         if (p_values[j] is Array)
                         {
                             p_param.Size = ((Array)p_values[j]).Length;
-                            if (p_param.Size == 0)
+                            if (p_param.Size == 0 && m_p_data_base.m_driver_type == EDriverType.mssql)
                                 p_param.Size = 1;
                         }
                         else

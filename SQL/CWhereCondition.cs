@@ -24,7 +24,7 @@ namespace DBWizard.SQL
         /// <summary>
         /// The value this condition should check against (fe 5, "test", othercolumn).
         /// </summary>
-        internal String m_p_expected_value { get; private set; }
+        internal Object m_p_expected_value { get; private set; }
 
         /// <summary>
         /// The operator used to connect this condition a nested connection, if one exists.
@@ -41,7 +41,7 @@ namespace DBWizard.SQL
         /// <param name="p_column_name">The column the new condition should check (fe "id").</param>
         /// <param name="p_operation">The operation the new condition should perform (fe "=" or "&lt;").</param>
         /// <param name="p_expected_value">The value the new condition should check against (fe 5, "test", othercolumn).</param>
-        internal CWhereCondition(String p_column_name, String p_operation, String p_expected_value)
+        internal CWhereCondition(String p_column_name, String p_operation, Object p_expected_value)
             : this(p_column_name, p_operation, p_expected_value, (CWhereCondition)null, EBooleanOperator.and)
         {
         }
@@ -53,7 +53,7 @@ namespace DBWizard.SQL
         /// <param name="p_expected_value">The value the new condition should check against (fe 5, "test", othercolumn).</param>
         /// <param name="p_nested_condition">The condition that this condition should be chained with, or null.</param>
         /// <param name="boolean_operator">The operator that this condition should use to chain with the given nested condition.</param>
-        internal CWhereCondition(String p_column_name, String p_operation, String p_expected_value, CWhereCondition p_nested_condition, EBooleanOperator boolean_operator)
+        internal CWhereCondition(String p_column_name, String p_operation, Object p_expected_value, CWhereCondition p_nested_condition, EBooleanOperator boolean_operator)
         {
             m_p_column_name = p_column_name;
             m_p_operation = p_operation;
@@ -95,11 +95,22 @@ namespace DBWizard.SQL
         {
             DbParameter p_param = p_cmd.CreateParameter();
             p_param.ParameterName = "@whereparam" + depth.ToString();
-            p_param.Value = CHelper.MakePrimitiveType(m_p_expected_value, p_map.m_p_primitives_map[m_p_column_name].m_primitive_type);
+            p_param.Value = CHelper.MakePrimitiveType(CHelper.ToValueString(m_p_expected_value), p_map.m_p_primitives_map[m_p_column_name].m_primitive_type);
             p_param.DbType = p_map.m_p_primitives_map[m_p_column_name].m_primitive_type.ToDbType();
             if (p_map.m_p_primitives_map[m_p_column_name].m_primitive_type.RequiresLength())
             {
-                p_param.Size = m_p_expected_value.Length;
+                if (m_p_expected_value is Array)
+                {
+                    p_param.Size = ((Array)m_p_expected_value).Length;
+                }
+                else if(m_p_expected_value is String)
+                {
+                    p_param.Size = ((String)m_p_expected_value).Length;
+                }
+                else
+                {
+                    throw new InvalidOperationException("A db primitive type that requires a length is not an array.");
+                }
             }
             p_params.Add(p_param);
             if (m_p_nested_condition != null)

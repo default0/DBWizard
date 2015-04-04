@@ -369,7 +369,7 @@ namespace DBWizard
             SQL.CWhereCondition[] p_conditions = new SQL.CWhereCondition[p_object_conditions.Length];
             for (Int32 i = 0; i < p_object_conditions.Length; ++i)
             {
-                p_conditions[i] = new SQL.CWhereCondition(p_object_conditions[i].Key, "=", p_object_conditions[i].Value.ToString());
+                p_conditions[i] = new SQL.CWhereCondition(p_object_conditions[i].Key, "=", p_object_conditions[i].Value);
             }
 
             CDataBaseObject p_db_obj = new CDataBaseObject(p_object_map);

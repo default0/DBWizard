@@ -126,7 +126,8 @@ namespace DBWizard.Queries
             }
             finally
             {
-                if (p_reader != null) p_reader.Close();
+                if (p_reader != null) 
+                    p_reader.Close();
             }
         }
     }
