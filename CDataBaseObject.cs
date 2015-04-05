@@ -331,10 +331,27 @@ namespace DBWizard
 
         private Boolean TryConvert(Object p_value, EDBPrimitive target_type, out Object p_converted)
         {
+            if (p_value == null || p_value is DBNull)
+            {
+                p_converted = null;
+                return true;
+            }
+
             try
             {
                 p_converted = Convert.ChangeType(p_value, target_type.ToType());
                 return true;
+            }
+            catch (MySqlConversionException)
+            {
+                if (p_value is MySqlDateTime && !((MySqlDateTime)p_value).IsValidDateTime)
+                {
+                    Nullable<DateTime> value = null;
+                    p_converted = value;
+                    return true;
+                }
+                p_converted = false;
+                return false;
             }
             catch
             {

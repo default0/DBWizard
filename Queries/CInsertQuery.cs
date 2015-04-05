@@ -221,6 +221,10 @@ namespace DBWizard.Queries
                             if (p_param.Size == 0 && m_p_data_base.m_driver_type == EDriverType.mssql)
                                 p_param.Size = 1;
                         }
+                        else if (p_values[j] == null)
+                        {
+                            p_param.Size = 1;
+                        }
                         else
                         {
                             p_param.Size = p_values[j].ToString().Length;

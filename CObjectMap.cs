@@ -1337,7 +1337,7 @@ namespace DBWizard
                     // load additional db objects
                     List<CDataBaseObject> p_linked_objs = new List<CDataBaseObject>();
                     CDBWizardStatus p_status = await p_target_map.LoadObjectAsync(p_data_base, new SQL.CWhereCondition(p_link_conditions), p_known_objects, p_linked_objs);
-                    if (p_status.m_status_code == EDBWizardStatusCode.err_no_object_found)
+                    if (p_status.m_status_code == EDBWizardStatusCode.err_no_object_found || p_linked_objs.Count == 0)
                     {
                         // do nothing, do not treat as error, specifically
                         p_linked_objs = new List<CDataBaseObject>() { null };
