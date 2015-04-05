@@ -43,12 +43,16 @@ namespace DBWizard.Queries
                 using (m_p_connection = await m_p_data_base.GetConnectionAsync())
                 {
                     DbCommand p_command = CreateCommand();
-                    m_p_data_base.RaiseCommandExecuted(this, p_command.CommandText);
+                    m_p_data_base.RaiseCommandExecuted(this, p_command);
                     return await RunAsCommandAsync(p_command);
                 }
             }
-
-            return await RunAsCommandAsync(CreateCommand());
+            else
+            {
+                DbCommand p_command = CreateCommand();
+                m_p_data_base.RaiseCommandExecuted(this, p_command);
+                return await RunAsCommandAsync(p_command);
+            }
         }
         protected abstract Task<CDataBaseQueryResult> RunAsCommandAsync(DbCommand p_command);
 
@@ -59,13 +63,15 @@ namespace DBWizard.Queries
                 using (m_p_connection = m_p_data_base.GetConnection())
                 {
                     DbCommand p_command = CreateCommand();
-                    m_p_data_base.RaiseCommandExecuted(this, p_command.CommandText);
+                    m_p_data_base.RaiseCommandExecuted(this, p_command);
                     return RunAsCommand(p_command);
                 }
             }
             else
             {
-                return RunAsCommand(CreateCommand());
+                DbCommand p_command = CreateCommand();
+                m_p_data_base.RaiseCommandExecuted(this, p_command);
+                return RunAsCommand(p_command);
             }
         }
         protected abstract CDataBaseQueryResult RunAsCommand(DbCommand p_command);

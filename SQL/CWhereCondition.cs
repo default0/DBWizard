@@ -93,11 +93,16 @@ namespace DBWizard.SQL
         }
         private void GetWhereParams(DbCommand p_cmd, CObjectMap p_map, List<DbParameter> p_params, Int32 depth)
         {
+            SStorePrimitiveOptions primitive_options;
+            if (!p_map.m_p_primitives_map.TryGetValue(m_p_column_name, out primitive_options))
+            {
+                throw new Exception("No values for column \"" + m_p_column_name + "\" loaded when trying to load parameters for type \"" + p_map.m_p_object_type.FullName + "\".");
+            }
             DbParameter p_param = p_cmd.CreateParameter();
             p_param.ParameterName = "@whereparam" + depth.ToString();
-            p_param.Value = CHelper.MakePrimitiveType(CHelper.ToValueString(m_p_expected_value), p_map.m_p_primitives_map[m_p_column_name].m_primitive_type);
-            p_param.DbType = p_map.m_p_primitives_map[m_p_column_name].m_primitive_type.ToDbType();
-            if (p_map.m_p_primitives_map[m_p_column_name].m_primitive_type.RequiresLength())
+            p_param.Value = CHelper.MakePrimitiveType(CHelper.ToValueString(m_p_expected_value), primitive_options.m_primitive_type);
+            p_param.DbType = primitive_options.m_primitive_type.ToDbType();
+            if (primitive_options.m_primitive_type.RequiresLength())
             {
                 if (m_p_expected_value is Array)
                 {

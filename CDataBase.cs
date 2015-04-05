@@ -39,7 +39,7 @@ namespace DBWizard
 
         internal HashSet<EDBPrimitive> m_p_supported_primitives;
 
-        public event EventHandler<String> CommandExecuted;
+        public event EventHandler<DbCommand> CommandExecuted;
 
         /// <summary>
         /// Constructs a new database connecting to a mysql server with the given String. This makes a blocking, synchronous connection attempt to test the connection String.
@@ -88,9 +88,9 @@ namespace DBWizard
                     {
                         p_mysql_connection.Open();
                     }
-                    catch (Exception p_except)
+                    catch (Exception)
                     {
-                        throw p_except;
+                        throw;
                     }
                     p_mysql_connection.Close();
                     break;
@@ -123,9 +123,9 @@ namespace DBWizard
                     {
                         p_mssql_connection.Open();
                     }
-                    catch (Exception p_except)
+                    catch (Exception)
                     {
-                        throw p_except;
+                        throw;
                     }
                     p_mssql_connection.Close();
                     break;
@@ -148,7 +148,7 @@ namespace DBWizard
             DbCommand p_command = GetConnection().CreateCommand();
             p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_query);
+            RaiseCommandExecuted(this, p_command);
 
             return p_command.ExecuteScalar();
         }
@@ -162,7 +162,7 @@ namespace DBWizard
             DbCommand p_command = (await GetConnectionAsync()).CreateCommand();
             p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_query);
+            RaiseCommandExecuted(this, p_command);
 
             return await p_command.ExecuteScalarAsync();
         }
@@ -172,7 +172,7 @@ namespace DBWizard
             DbCommand p_command = GetConnection().CreateCommand();
             p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_query);
+            RaiseCommandExecuted(this, p_command);
 
             Queries.CDataBaseQueryResult p_result = new Queries.CDataBaseQueryResult(null);
             p_result.RetrieveFromReader(p_command.ExecuteReader());
@@ -183,7 +183,7 @@ namespace DBWizard
             DbCommand p_command = (await GetConnectionAsync()).CreateCommand();
             p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_query);
+            RaiseCommandExecuted(this, p_command);
 
             Queries.CDataBaseQueryResult p_result = new Queries.CDataBaseQueryResult(null);
             await p_result.RetrieveFromReaderAsync(await p_command.ExecuteReaderAsync());
@@ -609,10 +609,10 @@ namespace DBWizard
             return p_connection;
         }
 
-        internal void RaiseCommandExecuted(Object p_sender, String p_command_text)
+        internal void RaiseCommandExecuted(Object p_sender, DbCommand p_command)
         {
             if (CommandExecuted != null)
-                CommandExecuted(p_sender, p_command_text);
+                CommandExecuted(p_sender, p_command);
         }
     }
 }

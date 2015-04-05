@@ -38,7 +38,7 @@ namespace DBWizard.StoreAttributes
         /// </summary>
         /// <param name="p_column_name">The name of the column to store the data in.</param>
         public CPrimitiveAttribute(String p_column_name)
-            : this(EDBPrimitive.infer, p_column_name, false, EStoreOptions.direct_assignment)
+            : this(EDBPrimitive.infer, p_column_name, true, EStoreOptions.direct_assignment)
         {
 
         }
@@ -48,7 +48,7 @@ namespace DBWizard.StoreAttributes
         /// <param name="primitive_type">The primitive type to store.</param>
         /// <param name="p_column_name">The name of the column to store the data in.</param>
         public CPrimitiveAttribute(EDBPrimitive primitive_type, String p_column_name)
-            : this(primitive_type, p_column_name, false, EStoreOptions.direct_assignment)
+            : this(primitive_type, p_column_name, true, EStoreOptions.direct_assignment)
         {
 
         }
@@ -60,7 +60,7 @@ namespace DBWizard.StoreAttributes
         /// <param name="p_column_name">The name of the column to store the data in.</param>
         /// <param name="store_options">Specifies how the data should be loaded.</param>
         public CPrimitiveAttribute(EDBPrimitive primitive_type, String p_column_name, EStoreOptions store_options)
-            : this(primitive_type, p_column_name, false, store_options)
+            : this(primitive_type, p_column_name, true, store_options)
         {
         }
 

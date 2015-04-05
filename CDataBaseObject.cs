@@ -1,6 +1,7 @@
 ﻿using MySql.Data.Types;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -39,7 +40,8 @@ namespace DBWizard
             get
             {
                 if (!_m_p_values.ContainsKey(p_column_name))
-                    throw new Exception("The key \"" + p_column_name + "\" could not be found.");
+                    throw new Exception("The key \"" + p_column_name + "\" was not found.");
+
                 return _m_p_values[p_column_name];
             }
         }
@@ -356,7 +358,12 @@ namespace DBWizard
             return true;
         }
 
-        internal String[] GetPrimitiveNames()
+        internal Boolean HasValue(String p_key)
+        {
+            return _m_p_values.ContainsKey(p_key);
+        }
+
+        internal String[] GetPrimitiveNames(CDataBaseObject p_parent)
         {
             List<String> p_primitive_names = new List<String>();
             foreach (KeyValuePair<String, Object> entry in _m_p_values)
@@ -381,9 +388,22 @@ namespace DBWizard
                     }
                 }
             }
+            if (p_parent != null)
+            {
+                List<SObjectLink> p_parent_links = p_parent.m_p_map.m_p_object_links;
+                for (Int32 i = 0; i < p_parent_links.Count; ++i)
+                {
+                    if (p_parent_links[i].m_p_target_map == m_p_map)
+                    {
+                        p_primitive_names.AddRange(
+                            p_parent_links[i].m_p_foreign_key.m_p_target_columns.Where(p_name => !p_primitive_names.Contains(p_name))
+                        );
+                    }
+                }
+            }
             return p_primitive_names.ToArray();
         }
-        internal Object[] GetPrimitiveValues()
+        internal Object[] GetPrimitiveValues(CDataBaseObject p_parent)
         {
             List<Object> p_primitive_values = new List<Object>();
             foreach (KeyValuePair<String, Object> entry in _m_p_values)
@@ -411,11 +431,40 @@ namespace DBWizard
                     }
                 }
             }
+            if (p_parent != null)
+            {
+                List<SObjectLink> p_parent_links = p_parent.m_p_map.m_p_object_links;
+                for (Int32 i = 0; i < p_parent_links.Count; ++i)
+                {
+                    if (p_parent_links[i].m_p_target_map == m_p_map)
+                    {
+                        ReadOnlyCollection<String> p_source_columns = p_parent_links[i].m_p_foreign_key.m_p_source_columns;
+                        for (Int32 j = 0; j < p_source_columns.Count; ++j)
+                        {
+                            Object p_value;
+                            if (p_parent.HasValue(p_source_columns[j]))
+                                p_value = p_parent[p_source_columns[j]];
+                            else if (HasValue(p_parent_links[i].m_p_foreign_key.m_p_target_columns[j]))
+                                p_value = this[p_parent_links[i].m_p_foreign_key.m_p_target_columns[j]];
+                            else
+                                throw new Exception("Could not track foreign key \"" + p_parent.m_p_map.m_p_linked_values_names[i] + "\" from \"" + p_parent.m_p_map.m_p_object_type.ToString() + "\" to \"" + m_p_map.m_p_object_type.ToString() + "\".");
+
+                            if (p_primitive_values.Contains(p_value))
+                                continue;
+                            else
+                                p_primitive_values.Add(p_value);
+                        }
+                    }
+                }
+            }
             return p_primitive_values.ToArray();
         }
 
         public override Int32 GetHashCode()
         {
+            if (m_p_map.m_p_unique_keys.Count == 0)
+                return base.GetHashCode();
+
             // hash primary key
             List<Byte> p_bytes = new List<Byte>();
             foreach (KeyValuePair<String, Object> entry in _m_p_values)

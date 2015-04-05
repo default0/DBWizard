@@ -374,7 +374,8 @@ namespace DBWizard
                 EDBPrimitive primitive_type = p_store_primitive_attribute.m_primitive_type;
                 if (primitive_type == EDBPrimitive.infer)
                 {
-                    if (!p_field_info.FieldType.ToDBPrimitive(out primitive_type))
+                    if (!p_field_info.FieldType.ToDBPrimitive(out primitive_type) &&
+                        !(p_field_info.FieldType.IsEnum && p_field_info.FieldType.GetEnumUnderlyingType().ToDBPrimitive(out primitive_type)))
                     {
                         throw new Exception("Database Primitive type cannot be automatically inferred for field \"" + p_field_info.Name + "\" in type \"" + m_p_object_type.FullName + "\". Please provide a database primitive type using a different overload of the constructor of the primitive attribute.");
                     }
@@ -530,8 +531,16 @@ namespace DBWizard
                     }
                     else if (!p_target_map.m_p_primitives_map.ContainsKey(p_target_columns[j]))
                     {
-                        throw new Exception(
-                            "The target table \"" + p_target_map.m_p_object_table + "\" does not contain a column \"" + p_target_columns[j] + "\" to create a one-to-many relation with."
+                        p_target_map.m_p_primitives_map.Add(
+                            p_target_columns[j],
+                            new SStorePrimitiveOptions(
+                                p_target_columns[j],
+                                m_p_primitives_map[p_source_columns[j]].m_primitive_type,
+                                null,
+                                null,
+                                true,
+                                EStoreOptions.none
+                            )
                         );
                     }
                 }
@@ -978,7 +987,8 @@ namespace DBWizard
 
                 if (store_options.m_store_options == EStoreOptions.direct_assignment)
                 {
-                    if (store_options.m_primitive_type.ToType() != p_field_info.FieldType)
+                    if (store_options.m_primitive_type.ToType() != p_field_info.FieldType && 
+                        !(p_field_info.FieldType.IsEnum && store_options.m_primitive_type.ToType() == p_field_info.FieldType.GetEnumUnderlyingType()))
                     {
                         if (typeof(Nullable<>).MakeGenericType(store_options.m_primitive_type.ToType()) != p_field_info.FieldType)
                         {
@@ -1616,10 +1626,10 @@ namespace DBWizard
         }
 
         // Save API helpers
-        private Dictionary<Queries.CDataBaseQuery, CDataBaseObject> SaveObject(CDataBase p_data_base, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
+        private Dictionary<Queries.CDataBaseQuery, CDataBaseObject> SaveObject(CDataBase p_data_base, CDataBaseObject p_parent_obj, CDataBaseObject p_db_obj, Dictionary<CDataBaseObject, CDataBaseObject> p_known_objects)
         {
             Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_queries = new Dictionary<Queries.CDataBaseQuery, CDataBaseObject>();
-            p_queries.Add(InsertPrimitives(p_db_obj, p_data_base), p_db_obj);
+            p_queries.Add(InsertPrimitives(p_parent_obj, p_db_obj, p_data_base), p_db_obj);
 
             CDataBaseObject p_known_object;
             if (p_known_objects.TryGetValue(p_db_obj, out p_known_object))
@@ -1635,10 +1645,10 @@ namespace DBWizard
 
             return p_queries;
         }
-        private Queries.CInsertQuery InsertPrimitives(CDataBaseObject p_object, CDataBase p_data_base)
+        private Queries.CInsertQuery InsertPrimitives(CDataBaseObject p_parent, CDataBaseObject p_object, CDataBase p_data_base)
         {
-            String[] p_primitive_names = p_object.GetPrimitiveNames();
-            Object[] p_primitive_values = p_object.GetPrimitiveValues();
+            String[] p_primitive_names = p_object.GetPrimitiveNames(p_parent);
+            Object[] p_primitive_values = p_object.GetPrimitiveValues(p_parent);
 
             return new Queries.CInsertQuery(
                 p_data_base,
@@ -1749,7 +1759,7 @@ namespace DBWizard
                             null
                         );
                     }
-                    foreach (KeyValuePair<Queries.CDataBaseQuery, CDataBaseObject> query_entry in p_target_map.SaveObject(p_data_base, p_objects[j], p_known_objects))
+                    foreach (KeyValuePair<Queries.CDataBaseQuery, CDataBaseObject> query_entry in p_target_map.SaveObject(p_data_base, p_object, p_objects[j], p_known_objects))
                     {
                         p_queries.Add(query_entry.Key, query_entry.Value);
                     }
@@ -1761,7 +1771,7 @@ namespace DBWizard
         // Save Shared Code
         private void HandleSavePrepareQueries(CDataBase p_data_base, CDataBaseObject p_db_obj, out List<Queries.CInsertQuery> p_insert_queries, out List<Queries.CDeleteQuery> p_delete_queries, out Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map)
         {
-            p_query_map = SaveObject(p_data_base, p_db_obj, new Dictionary<CDataBaseObject, CDataBaseObject>());
+            p_query_map = SaveObject(p_data_base, null, p_db_obj, new Dictionary<CDataBaseObject, CDataBaseObject>());
             Queries.CDataBaseQuery[] p_queries = p_query_map.Keys.ToArray();
 
             p_insert_queries = (from p_query in p_queries where p_query is Queries.CInsertQuery select (Queries.CInsertQuery)p_query).ToList();
