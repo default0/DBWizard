@@ -36,6 +36,10 @@
     <Reference Include="MongoDB.Driver">
       <HintPath>..\BlackGalaxyServer\bin\Debug\MongoDB.Driver.dll</HintPath>
     </Reference>
+    <Reference Include="MySql.Data, Version=6.8.3.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>lib\MySql.Data.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -90,12 +94,6 @@
     <Compile Include="StoreAttributes\CTableAttribute.cs" />
     <Compile Include="StoreAttributes\CUserLoadCallBackAttribute.cs" />
     <Compile Include="StoreAttributes\CUserSaveCallBackAttribute.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\MySql.Data\MySql.Data.csproj">
-      <Project>{e9df5ed1-4cbd-4226-b931-9a51610ac14d}</Project>
-      <Name>MySql.Data</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
