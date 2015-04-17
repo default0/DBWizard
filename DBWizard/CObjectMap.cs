@@ -877,7 +877,14 @@ namespace DBWizard
                     }
                     else // type is stored in enumerable
                     {
-                        MethodInfo p_generic_set_objects_method = p_set_objects_method.MakeGenericMethod(m_p_object_links[i].m_p_target_map.m_p_object_type);
+                        Type p_target_type = m_p_object_links[i].m_p_target_map.m_p_object_type;
+                        if (p_target_type == null)
+                        {
+                            // is many to many relationship
+                            p_field_info.FieldType.GetEnumeratedType(out p_target_type);
+                        }
+
+                        MethodInfo p_generic_set_objects_method = p_set_objects_method.MakeGenericMethod(p_target_type);
                         // p_db_obj.SetObjects(p_obj.<field-name>, "<value-name>");
                         p_gen.Emit(OpCodes.Call, p_generic_set_objects_method);
                     }
@@ -1506,55 +1513,57 @@ namespace DBWizard
             Dictionary<Queries.CDataBaseQuery, CDataBaseObject> p_query_map;
             HandleSavePrepareQueries(p_data_base, p_db_obj, out p_insert_queries, out p_delete_queries, out p_query_map);
 
-            DbConnection p_connection = p_data_base.GetConnection();
-            DbTransaction p_trans_action = p_connection.BeginTransaction();
-            try
+            using (DbConnection p_connection = p_data_base.GetConnection())
             {
-                for (Int32 i = 0; i < p_delete_queries.Count; ++i)
+                DbTransaction p_trans_action = p_connection.BeginTransaction();
+                try
                 {
-                    p_delete_queries[i].m_p_connection = p_connection;
-                    p_delete_queries[i].m_p_trans_action = p_trans_action;
-                }
-                for (Int32 i = 0; i < p_insert_queries.Count; ++i)
-                {
-                    p_insert_queries[i].m_p_connection = p_connection;
-                    p_insert_queries[i].m_p_trans_action = p_trans_action;
-                }
-
-                for (Int32 i = 0; i < p_delete_queries.Count; ++i)
-                {
-                    p_delete_queries[i].Run();
-                }
-                List<Queries.CDataBaseQueryResult> p_results = new List<Queries.CDataBaseQueryResult>();
-                for (Int32 i = 0; i < p_insert_queries.Count; ++i)
-                {
-                    Queries.CDataBaseQueryResult p_result = p_insert_queries[i].Run();
-
-                    if (p_result.m_last_inserted_id.HasValue)
+                    for (Int32 i = 0; i < p_delete_queries.Count; ++i)
                     {
-                        CDataBaseObject p_inserted_obj;
-                        if (p_query_map.TryGetValue(p_insert_queries[i], out p_inserted_obj))
+                        p_delete_queries[i].m_p_connection = p_connection;
+                        p_delete_queries[i].m_p_trans_action = p_trans_action;
+                    }
+                    for (Int32 i = 0; i < p_insert_queries.Count; ++i)
+                    {
+                        p_insert_queries[i].m_p_connection = p_connection;
+                        p_insert_queries[i].m_p_trans_action = p_trans_action;
+                    }
+
+                    for (Int32 i = 0; i < p_delete_queries.Count; ++i)
+                    {
+                        p_delete_queries[i].Run();
+                    }
+                    List<Queries.CDataBaseQueryResult> p_results = new List<Queries.CDataBaseQueryResult>();
+                    for (Int32 i = 0; i < p_insert_queries.Count; ++i)
+                    {
+                        Queries.CDataBaseQueryResult p_result = p_insert_queries[i].Run();
+
+                        if (p_result.m_last_inserted_id.HasValue)
                         {
-                            if (p_inserted_obj != null && p_inserted_obj.m_p_source != null)
+                            CDataBaseObject p_inserted_obj;
+                            if (p_query_map.TryGetValue(p_insert_queries[i], out p_inserted_obj))
                             {
-                                CObjectMap p_mapper = CObjectMap.Get(p_inserted_obj.m_p_source.GetType());
-                                p_mapper.m_p_assign_auto_increment_method.Invoke(p_inserted_obj.m_p_source, new Object[] { p_inserted_obj.m_p_source, p_result.m_last_inserted_id.Value });
+                                if (p_inserted_obj != null && p_inserted_obj.m_p_source != null)
+                                {
+                                    CObjectMap p_mapper = CObjectMap.Get(p_inserted_obj.m_p_source.GetType());
+                                    p_mapper.m_p_assign_auto_increment_method.Invoke(p_inserted_obj.m_p_source, new Object[] { p_inserted_obj.m_p_source, p_result.m_last_inserted_id.Value });
+                                }
                             }
                         }
                     }
-                }
 
-                p_trans_action.Commit();
-            }
-            catch (Exception p_except)
-            {
-                p_trans_action.Rollback();
-                return new CDBWizardStatus(EDBWizardStatusCode.err_exception_thrown, p_except);
-            }
-            finally
-            {
-                p_trans_action.Dispose();
-                p_connection.Dispose();
+                    p_trans_action.Commit();
+                }
+                catch (Exception p_except)
+                {
+                    p_trans_action.Rollback();
+                    return new CDBWizardStatus(EDBWizardStatusCode.err_exception_thrown, p_except);
+                }
+                finally
+                {
+                    p_trans_action.Dispose();
+                    p_connection.Dispose();
+                }
             }
             return new CDBWizardStatus(EDBWizardStatusCode.success);
             // TODO: Research EnlistTransaction function and stuff so you actually know what youre doing :V

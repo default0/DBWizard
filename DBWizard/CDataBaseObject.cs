@@ -222,10 +222,6 @@ namespace DBWizard
                         {
                             time = new DateTime(((TimeSpan)p_value).Ticks);
                         }
-                        else if (p_value == null)
-                        {
-                            time = null;
-                        }
                         else
                         {
                             return ESetPrimitiveStatus.err_type_mismatch;

@@ -270,26 +270,28 @@ namespace DBWizard.Queries
             }
             else if (m_p_data_base.m_driver_type == EDriverType.mssql)
             {
-                SqlCommand p_get_last_insert_id_cmd = new SqlCommand();
-                p_get_last_insert_id_cmd.Transaction = p_command.Transaction as SqlTransaction;
-                p_get_last_insert_id_cmd.Connection = p_command.Connection as SqlConnection;
-                p_get_last_insert_id_cmd.CommandText = "SELECT @@IDENTITY;";
+                using (SqlCommand p_get_last_insert_id_cmd = new SqlCommand())
+                {
+                    p_get_last_insert_id_cmd.Transaction = p_command.Transaction as SqlTransaction;
+                    p_get_last_insert_id_cmd.Connection = p_command.Connection as SqlConnection;
+                    p_get_last_insert_id_cmd.CommandText = "SELECT @@IDENTITY;";
 
-                Object p_scalar = p_get_last_insert_id_cmd.ExecuteScalar();
-                if (p_scalar is DBNull)
-                {
-                    return new CDataBaseQueryResult(this, n_rows_affected);
-                }
-                else
-                {
-                    Int64 last_insert_id = CHelper.SafeCastObjectToInt64(p_scalar);
-                    if (last_insert_id != 0)
+                    Object p_scalar = p_get_last_insert_id_cmd.ExecuteScalar();
+                    if (p_scalar is DBNull)
                     {
-                        return new CDataBaseQueryResult(this, n_rows_affected, last_insert_id);
+                        return new CDataBaseQueryResult(this, n_rows_affected);
                     }
                     else
                     {
-                        return new CDataBaseQueryResult(this, n_rows_affected);
+                        Int64 last_insert_id = CHelper.SafeCastObjectToInt64(p_scalar);
+                        if (last_insert_id != 0)
+                        {
+                            return new CDataBaseQueryResult(this, n_rows_affected, last_insert_id);
+                        }
+                        else
+                        {
+                            return new CDataBaseQueryResult(this, n_rows_affected);
+                        }
                     }
                 }
             }
@@ -319,26 +321,28 @@ namespace DBWizard.Queries
             }
             else if (m_p_data_base.m_driver_type == EDriverType.mssql)
             {
-                SqlCommand p_get_last_insert_id_cmd = new SqlCommand();
-                p_get_last_insert_id_cmd.Transaction = p_command.Transaction as SqlTransaction;
-                p_get_last_insert_id_cmd.Connection = p_command.Connection as SqlConnection;
-                p_get_last_insert_id_cmd.CommandText = "SELECT @@IDENTITY;";
+                using (SqlCommand p_get_last_insert_id_cmd = new SqlCommand())
+                {
+                    p_get_last_insert_id_cmd.Transaction = p_command.Transaction as SqlTransaction;
+                    p_get_last_insert_id_cmd.Connection = p_command.Connection as SqlConnection;
+                    p_get_last_insert_id_cmd.CommandText = "SELECT @@IDENTITY;";
 
-                Object p_scalar = await p_get_last_insert_id_cmd.ExecuteScalarAsync();
-                if (p_scalar is DBNull)
-                {
-                    return new CDataBaseQueryResult(this, n_rows_affected);
-                }
-                else
-                {
-                    Int64 last_insert_id = CHelper.SafeCastObjectToInt64(p_scalar);
-                    if (last_insert_id != 0)
+                    Object p_scalar = await p_get_last_insert_id_cmd.ExecuteScalarAsync();
+                    if (p_scalar is DBNull)
                     {
-                        return new CDataBaseQueryResult(this, n_rows_affected, last_insert_id);
+                        return new CDataBaseQueryResult(this, n_rows_affected);
                     }
                     else
                     {
-                        return new CDataBaseQueryResult(this, n_rows_affected);
+                        Int64 last_insert_id = CHelper.SafeCastObjectToInt64(p_scalar);
+                        if (last_insert_id != 0)
+                        {
+                            return new CDataBaseQueryResult(this, n_rows_affected, last_insert_id);
+                        }
+                        else
+                        {
+                            return new CDataBaseQueryResult(this, n_rows_affected);
+                        }
                     }
                 }
             }

@@ -52,8 +52,6 @@ namespace DBWizard
             switch (driver_type)
             {
                 case EDriverType.mysql:
-                    MySqlConnection p_mysql_connection = new MySqlConnection();
-
                     m_p_supported_primitives = new HashSet<EDBPrimitive>()
                     {
                         EDBPrimitive.@decimal,
@@ -83,19 +81,20 @@ namespace DBWizard
                         EDBPrimitive.boolean
                     };
 
-                    p_mysql_connection.ConnectionString = p_connection_string;
-                    try
+                    using (MySqlConnection p_mysql_connection = new MySqlConnection())
                     {
-                        p_mysql_connection.Open();
+                        p_mysql_connection.ConnectionString = p_connection_string;
+                        try
+                        {
+                            p_mysql_connection.Open();
+                        }
+                        catch (Exception)
+                        {
+                            throw;
+                        }
                     }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-                    p_mysql_connection.Close();
                     break;
                 case EDriverType.mssql:
-                    SqlConnection p_mssql_connection = new SqlConnection();
 
                     m_p_supported_primitives = new HashSet<EDBPrimitive>()
                     {
@@ -118,16 +117,18 @@ namespace DBWizard
                         EDBPrimitive.time,
                     };
 
-                    p_mssql_connection.ConnectionString = p_connection_string;
-                    try
+                    using (SqlConnection p_mssql_connection = new SqlConnection())
                     {
-                        p_mssql_connection.Open();
+                        p_mssql_connection.ConnectionString = p_connection_string;
+                        try
+                        {
+                            p_mssql_connection.Open();
+                        }
+                        catch (Exception)
+                        {
+                            throw;
+                        }
                     }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-                    p_mssql_connection.Close();
                     break;
                 default:
                     throw new Exception("Invalid driver type specified.");
@@ -145,12 +146,17 @@ namespace DBWizard
         /// <returns>The scalar the query returned.</returns>
         public Object ExecuteScalar(String p_query)
         {
-            DbCommand p_command = GetConnection().CreateCommand();
-            p_command.CommandText = p_query;
+            using (DbConnection p_connection = GetConnection())
+            {
+                using (DbCommand p_command = p_connection.CreateCommand())
+                {
+                    p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_command);
+                    RaiseCommandExecuted(this, p_command);
 
-            return p_command.ExecuteScalar();
+                    return p_command.ExecuteScalar();
+                }
+            }
         }
         /// <summary>
         /// Executes the given query as scalar. The query is executed as is, so make sure your calls are XSS safe.
@@ -159,35 +165,50 @@ namespace DBWizard
         /// <returns>The scalar the query returned.</returns>
         public async Task<Object> ExecuteScalarAsync(String p_query)
         {
-            DbCommand p_command = (await GetConnectionAsync()).CreateCommand();
-            p_command.CommandText = p_query;
+            using(DbConnection p_connection = (await GetConnectionAsync()))
+            {
+                using (DbCommand p_command = p_connection.CreateCommand())
+                {
+                    p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_command);
+                    RaiseCommandExecuted(this, p_command);
 
-            return await p_command.ExecuteScalarAsync();
+                    return await p_command.ExecuteScalarAsync();
+                }
+            }
         }
 
         public CDataBaseResultSet ExecuteReader(String p_query)
         {
-            DbCommand p_command = GetConnection().CreateCommand();
-            p_command.CommandText = p_query;
+            using (DbConnection p_connection = GetConnection())
+            {
+                using (DbCommand p_command = p_connection.CreateCommand())
+                {
+                    p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_command);
+                    RaiseCommandExecuted(this, p_command);
 
-            Queries.CDataBaseQueryResult p_result = new Queries.CDataBaseQueryResult(null);
-            p_result.RetrieveFromReader(p_command.ExecuteReader());
-            return p_result.m_p_result_set;
+                    Queries.CDataBaseQueryResult p_result = new Queries.CDataBaseQueryResult(null);
+                    p_result.RetrieveFromReader(p_command.ExecuteReader());
+                    return p_result.m_p_result_set;
+                }
+            }
         }
         public async Task<CDataBaseResultSet> ExecuteReaderAsync(String p_query)
         {
-            DbCommand p_command = (await GetConnectionAsync()).CreateCommand();
-            p_command.CommandText = p_query;
+            using (DbConnection p_connection = (await GetConnectionAsync()))
+            {
+                using (DbCommand p_command = p_connection.CreateCommand())
+                {
+                    p_command.CommandText = p_query;
 
-            RaiseCommandExecuted(this, p_command);
+                    RaiseCommandExecuted(this, p_command);
 
-            Queries.CDataBaseQueryResult p_result = new Queries.CDataBaseQueryResult(null);
-            await p_result.RetrieveFromReaderAsync(await p_command.ExecuteReaderAsync());
-            return p_result.m_p_result_set;
+                    Queries.CDataBaseQueryResult p_result = new Queries.CDataBaseQueryResult(null);
+                    await p_result.RetrieveFromReaderAsync(await p_command.ExecuteReaderAsync());
+                    return p_result.m_p_result_set;
+                }
+            }
         }
 
         /// <summary>
